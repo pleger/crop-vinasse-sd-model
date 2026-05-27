@@ -3,6 +3,37 @@
 Command-line reimplementation of a crop, ethanol, and vinasse valorization system
 dynamics model.
 
+## Model Overview
+
+The model represents a sugarcane-ethanol production system connected to circular
+economy pathways for vinasse valorization. It was derived from an AnyLogic system
+dynamics model and reimplemented so that the simulation can be run from the command
+line in a Linux pipeline.
+
+The core structure has four linked parts:
+
+- **Consumer demand**: Brazilian population is represented with a lookup table, and
+  ethanol demand is estimated from per-capita ethanol use.
+- **Crop production**: young crop and harvest-ready crop are modeled as stocks, with
+  planting, maturation delay, and discard flows.
+- **Ethanol production and inventory**: crop availability drives ethanol production,
+  while imports and sales balance demand against available ethanol inventory.
+- **Vinasse valorization**: ethanol production generates vinasse, which can be
+  allocated to biogas, organic acid, water recovery, or an equal-weight
+  diversification portfolio.
+
+The included scenario runners produce validation data and financial trajectories for
+the main valorization alternatives:
+
+- `Biogas`
+- `Organic Acid`
+- `Water Recovery`
+- `Diversification`
+
+The PySD/Vensim version is intended for reproducible server-side execution. The pure
+Python version mirrors the same equations and is useful for debugging, quick
+experiments, and environments where installing PySD is not convenient.
+
 The project contains:
 
 - A pure Python implementation of the model equations.
@@ -47,3 +78,6 @@ configurable in the Python implementation.
 - `outputs/scenarios_pysd.xlsx`: sample PySD-generated workbook.
 - `outputs/scenarios_pysd_python.xlsx`: sample pure-Python-generated workbook.
 
+## License
+
+This project is released under the MIT License. See [LICENSE](LICENSE).
