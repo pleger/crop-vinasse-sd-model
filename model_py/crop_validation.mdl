@@ -1,0 +1,304 @@
+{UTF-8}
+Young Crop = INTEG( Planting Rate - Growth Rate, 0 )
+~ thousand tons
+~|
+
+Crop = INTEG( Growth Rate - Discard Rate, 0 )
+~ thousand tons
+~|
+
+Ethanol = INTEG( Ethanol Production + Imports - Sales, 0 )
+~ thousand m3
+~|
+
+Cumulative Profit = INTEG( Net Profit, 0 )
+~ USD
+~|
+
+Organic Acid = INTEG( Organic Acid Production, 0 )
+~ thousand kg
+~|
+
+Biogas = INTEG( Biogas Production, 0 )
+~ thousand Nm3
+~|
+
+Water = INTEG( Water Recovery, 0 )
+~ thousand m3
+~|
+
+Growth Rate = DELAY3I(Planting Rate, Growth Delay Time, Initial Planting Rate)
+~ thousand tons/year
+~|
+
+Initial Planting Rate = 160845.95684887265
+~ thousand tons/year
+~|
+
+Discard Rate = Crop / Average Discard Time
+~ thousand tons/year
+~|
+
+Planting Rate = MAX(0, Indicated Planting)
+~ thousand tons/year
+~|
+
+Indicated Planting = Adjust Young Crop + Desired Growth Rate
+~ thousand tons/year
+~|
+
+Adjust Young Crop = (Desired Young Crop - Young Crop) / Adjust Time Young Crop
+~ thousand tons/year
+~|
+
+Desired Young Crop = Desired Growth Rate * Growth Delay Time
+~ thousand tons
+~|
+
+Desired Growth Rate = MAX(0, Expected Loss Rate + Adjust Crop)
+~ thousand tons/year
+~|
+
+Expected Loss Rate = Discard Rate
+~ thousand tons/year
+~|
+
+Adjust Crop = (Desired Crop - Crop) / Adjust Time Crop
+~ thousand tons/year
+~|
+
+Desired Crop = Crop Demand
+~ thousand tons
+~|
+
+Crop Demand = Demand Volume * Ethanol To Crop
+~ thousand tons
+~|
+
+Demand Volume = Population * Ethanol Usage / Vol Conversion Factor
+~ thousand m3/year
+~|
+
+Population = WITH LOOKUP(Time, ([(0,0)-(30,220000000)], (0,174018282),(1,176301203),(2,178503484),(3,180622688),(4,182675143),(5,184688101),(6,186653106),(7,188552320),(8,190367302),(9,192079951),(10,193701929),(11,195284734),(12,196876111),(13,198478299),(14,200085127),(15,201675532),(16,203218114),(17,204703445),(18,206107261),(19,207455459),(20,208660842),(21,209550294),(22,210306415),(23,211140729),(24,211998573),(25,212812405),(26,213600000),(27,214400000),(28,215200000),(29,216000000),(30,216800000)))
+~ persons
+~|
+
+Ethanol Production = (Crop / Processing Time) * Ethanol Yield
+~ thousand m3/year
+~|
+
+Sales = MIN(Ethanol / Sales Time, Demand Volume)
+~ thousand m3/year
+~|
+
+Shortage = MAX(0, Demand Volume - Ethanol / Sales Time)
+~ thousand m3/year
+~|
+
+Imports = Shortage
+~ thousand m3/year
+~|
+
+Vinasse Production = Ethanol Production * Vinasse Yield
+~ thousand m3/year
+~|
+
+Biogas Production = Vinasse Production * Proportion Biogas * Biogas Factor
+~ thousand Nm3/year
+~|
+
+Organic Acid Production = Vinasse Production * Proportion Organic Acid * Organic Acid Factor
+~ thousand kg/year
+~|
+
+Water Recovery = Vinasse Production * Proportion Water * Water Recovery Factor
+~ thousand m3/year
+~|
+
+Planting Cost = Cost Per Planting * Planting Rate
+~ USD/year
+~|
+
+Production Cost = Cost Per Unit Ethanol * Ethanol Production
+~ USD/year
+~|
+
+Import Cost = Imports * Cost Per Unit Import * (1 + Tariff Import)
+~ USD/year
+~|
+
+Organic Acid Cost = Cost Per Unit Organic Acid * Organic Acid Production
+~ USD/year
+~|
+
+Biogas Cost = Biogas Production * Cost Per Unit Biogas
+~ USD/year
+~|
+
+Water Cost Flow = Water Cost Treat * Water Recovery
+~ USD/year
+~|
+
+Total Cost = Import Cost + Planting Cost + Production Cost + Organic Acid Cost + Biogas Cost + Water Cost Flow
+~ USD/year
+~|
+
+Sales Revenue = Price Per Unit Ethanol * Sales
+~ USD/year
+~|
+
+Organic Acid Revenue = Price Per Unit Organic Acid * Organic Acid Production
+~ USD/year
+~|
+
+Biogas Revenue = Biogas Production * Price Per Unit Biogas
+~ USD/year
+~|
+
+By Product Revenue = Biogas Revenue + Organic Acid Revenue
+~ USD/year
+~|
+
+Water Recovery Credits = (Water Cost + Policy Water * Water Cost Treat) * Water Recovery
+~ USD/year
+~|
+
+Total Revenue = Sales Revenue + By Product Revenue + Water Recovery Credits
+~ USD/year
+~|
+
+Net Profit = Total Revenue - Total Cost
+~ USD/year
+~|
+
+Adjust Time Young Crop = 1.59
+~ year
+~|
+
+Growth Delay Time = 1.095
+~ year
+~|
+
+Adjust Time Crop = 3.59
+~ year
+~|
+
+Average Discard Time = 5.319
+~ year
+~|
+
+Vol Conversion Factor = 1000
+~ dimensionless
+~|
+
+Ethanol Usage = 0.15
+~ m3/person/year
+~|
+
+Ethanol To Crop = 13.1
+~ ton/m3
+~|
+
+Ethanol Yield = 0.046
+~ m3/ton
+~|
+
+Processing Time = 1
+~ year
+~|
+
+Sales Time = 1
+~ year
+~|
+
+Vinasse Yield = 10
+~ m3/m3
+~|
+
+Organic Acid Factor = 10.6
+~ kg/m3
+~|
+
+Biogas Factor = 12.115
+~ Nm3/m3
+~|
+
+Water Recovery Factor = 0.7
+~ dimensionless
+~|
+
+Proportion Organic Acid = 0
+~ dimensionless
+~|
+
+Proportion Biogas = 1
+~ dimensionless
+~|
+
+Proportion Water = 0
+~ dimensionless
+~|
+
+Cost Per Planting = 15200
+~ USD/thousand ton
+~|
+
+Cost Per Unit Ethanol = 423000
+~ USD/thousand m3
+~|
+
+Cost Per Unit Import = 414680
+~ USD/thousand m3
+~|
+
+Price Per Unit Ethanol = 545455
+~ USD/thousand m3
+~|
+
+Price Per Unit Biogas = 500
+~ USD/thousand Nm3
+~|
+
+Price Per Unit Organic Acid = 2890
+~ USD/thousand kg
+~|
+
+Tariff Import = 0.18
+~ dimensionless
+~|
+
+Cost Per Unit Organic Acid = 2750
+~ USD/thousand kg
+~|
+
+Cost Per Unit Biogas = 75
+~ USD/thousand Nm3
+~|
+
+Water Cost = 2810
+~ USD/thousand m3
+~|
+
+Policy Water = 0
+~ dimensionless
+~|
+
+Water Cost Treat = 1030
+~ USD/thousand m3
+~|
+
+FINAL TIME = 24
+~ year
+~|
+
+INITIAL TIME = 0
+~ year
+~|
+
+SAVEPER = 1
+~ year
+~|
+
+TIME STEP = 0.001
+~ year
+~|
