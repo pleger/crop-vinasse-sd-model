@@ -58,6 +58,65 @@ The generated workbook includes:
 - `Water Recovery`
 - `Diversification`
 
+## Command-Line Interfaces
+
+The project provides two command-line runners.
+
+### PySD runner
+
+Use this runner when you want to execute the Vensim/PySD version of the model:
+
+```bash
+python model_py/run_pysd_model.py --output outputs/scenarios_pysd.xlsx
+```
+
+This creates an Excel workbook with the validation sheet and all scenario sheets.
+
+### Pure Python runner
+
+Use this runner when you want to execute the model equations directly in Python,
+without translating through PySD:
+
+```bash
+python model_py/run_model.py --output outputs/scenarios_pysd_python.xlsx
+```
+
+The pure Python CLI can also write targeted CSV outputs for pipeline steps:
+
+```bash
+# Validation trajectory only
+python model_py/run_model.py \
+  --sheet validation \
+  --output outputs/validation.csv
+
+# One scenario only
+python model_py/run_model.py \
+  --sheet scenario \
+  --scenario "Biogas" \
+  --output outputs/biogas.csv
+```
+
+By default, the pure Python runner uses `Ethanol Yield = 0.046`, which reproduces
+the provided `Scenarios.xlsx` validation sheet. To run with the literal value stored
+in the reviewed AnyLogic file (`0.05`), use:
+
+```bash
+python model_py/run_model.py \
+  --alp-profile \
+  --output outputs/scenarios_alp_profile.xlsx
+```
+
+Available pure Python CLI options:
+
+```text
+--output PATH              Output .xlsx or .csv path.
+--sheet all|validation|scenario
+                           Write all workbook sheets, only validation, or one scenario CSV.
+--scenario NAME            Scenario for --sheet scenario.
+--ethanol-yield VALUE      Override ethanol yield.
+--alp-profile              Use Ethanol Yield = 0.05.
+```
+
 ## Validation
 
 The generated `Validation` sheet was checked against the provided
