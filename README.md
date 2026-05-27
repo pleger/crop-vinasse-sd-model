@@ -47,11 +47,15 @@ The project contains:
 The static web app in `docs/` runs the model directly in the browser. It is designed
 for GitHub Pages and does not require a server, database, or build step.
 
-Published site:
+Expected site URL once GitHub Pages is enabled:
 
 ```text
 https://pleger.github.io/crop-vinasse-sd-model/
 ```
+
+Note: GitHub Pages availability for private repositories depends on the GitHub
+account/organization plan. If Pages is unavailable for this private repository, make
+the repository public or deploy the `docs/` folder to another static host.
 
 Local preview:
 
