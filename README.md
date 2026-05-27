@@ -38,8 +38,42 @@ The project contains:
 
 - A pure Python implementation of the model equations.
 - A PySD/Vensim implementation for command-line execution on Linux servers.
+- A browser-based dashboard for GitHub Pages.
 - Scripts that generate a `Scenarios.xlsx`-style workbook with validation and scenario sheets.
 - Sample generated outputs under `outputs/`.
+
+## Online Interface
+
+The static web app in `docs/` runs the model directly in the browser. It is designed
+for GitHub Pages and does not require a server, database, or build step.
+
+Published site:
+
+```text
+https://pleger.github.io/crop-vinasse-sd-model/
+```
+
+Local preview:
+
+```bash
+python -m http.server 8000 --directory docs
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000
+```
+
+The dashboard supports scenario selection, custom vinasse allocation, selected model
+parameter edits, charts, validation MAPE readouts, yearly results, and CSV export.
+
+To publish it with GitHub Pages, configure the repository Pages source to:
+
+```text
+Branch: master
+Folder: /docs
+```
 
 ## Quick Start
 

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Crop/Vinasse SD Model</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">System Dynamics</p>
+        <h1>Crop/Vinasse Model</h1>
+      </div>
+      <div class="header-actions">
+        <button id="resetButton" type="button" class="button secondary">Reset</button>
+        <button id="exportButton" type="button" class="button primary">Export CSV</button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <aside class="control-panel" aria-label="Model controls">
+        <section class="panel-section">
+          <h2>Scenario</h2>
+          <label class="field">
+            <span>Preset</span>
+            <select id="scenarioSelect">
+              <option value="biogas">Biogas</option>
+              <option value="organic">Organic Acid</option>
+              <option value="water">Water Recovery</option>
+              <option value="diversification">Diversification</option>
+              <option value="custom">Custom Allocation</option>
+            </select>
+          </label>
+
+          <div class="allocation-grid">
+            <label class="field">
+              <span>Biogas</span>
+              <input id="biogasShare" type="range" min="0" max="1" step="0.001">
+              <output id="biogasShareValue"></output>
+            </label>
+            <label class="field">
+              <span>Organic Acid</span>
+              <input id="organicShare" type="range" min="0" max="1" step="0.001">
+              <output id="organicShareValue"></output>
+            </label>
+            <label class="field">
+              <span>Water</span>
+              <input id="waterShare" type="range" min="0" max="1" step="0.001">
+              <output id="waterShareValue"></output>
+            </label>
+          </div>
+          <div id="allocationStatus" class="status-line"></div>
+        </section>
+
+        <section class="panel-section">
+          <h2>Production</h2>
+          <label class="field">
+            <span>Ethanol Yield</span>
+            <input id="ethanolYield" type="number" min="0" max="0.1" step="0.001">
+          </label>
+          <label class="field">
+            <span>Ethanol Use</span>
+            <input id="ethanolUsage" type="number" min="0" max="0.3" step="0.001">
+          </label>
+          <label class="field">
+            <span>Growth Delay</span>
+            <input id="growthDelay" type="number" min="0.1" max="5" step="0.001">
+          </label>
+          <label class="field">
+            <span>Discard Time</span>
+            <input id="discardTime" type="number" min="0.1" max="15" step="0.001">
+          </label>
+        </section>
+
+        <section class="panel-section">
+          <h2>Economics</h2>
+          <label class="field">
+            <span>Biogas Price</span>
+            <input id="biogasPrice" type="number" min="0" step="1">
+          </label>
+          <label class="field">
+            <span>Organic Acid Price</span>
+            <input id="organicPrice" type="number" min="0" step="1">
+          </label>
+          <label class="field">
+            <span>Water Value</span>
+            <input id="waterValue" type="number" min="0" step="1">
+          </label>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <section class="metric-grid" aria-label="Key results">
+          <article class="metric">
+            <span>Cumulative Profit</span>
+            <strong id="metricProfit"></strong>
+          </article>
+          <article class="metric">
+            <span>Y30 Margin</span>
+            <strong id="metricMargin"></strong>
+          </article>
+          <article class="metric">
+            <span>Crop MAPE</span>
+            <strong id="metricCropMape"></strong>
+          </article>
+          <article class="metric">
+            <span>Ethanol MAPE</span>
+            <strong id="metricEthanolMape"></strong>
+          </article>
+        </section>
+
+        <section class="chart-grid">
+          <article class="chart-panel">
+            <div class="panel-heading">
+              <h2>Financial Trajectory</h2>
+              <span>MMUSD/year</span>
+            </div>
+            <canvas id="financialChart" width="920" height="420"></canvas>
+          </article>
+
+          <article class="chart-panel">
+            <div class="panel-heading">
+              <h2>Validation</h2>
+              <span>thousand units</span>
+            </div>
+            <canvas id="validationChart" width="920" height="420"></canvas>
+          </article>
+        </section>
+
+        <section class="table-panel">
+          <div class="panel-heading">
+            <h2>Yearly Results</h2>
+            <span id="tableCount"></span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>Crop</th>
+                  <th>Ethanol</th>
+                  <th>Revenue</th>
+                  <th>Cost</th>
+                  <th>Profit</th>
+                </tr>
+              </thead>
+              <tbody id="resultBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
