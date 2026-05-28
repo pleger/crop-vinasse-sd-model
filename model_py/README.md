@@ -2,6 +2,12 @@
 
 This folder contains a command-line reimplementation of the AnyLogic crop/ethanol/vinasse model.
 
+## Model Author
+
+Main model author: **Agustín Olivares** ([GitHub](https://github.com/Aaosoto/),
+[LinkedIn](https://www.linkedin.com/in/aaosoto/),
+[email](mailto:agustin.olivares@ce.ucn.cl)).
+
 ## Files
 
 - `crop_model.py`: pure Python implementation of the model equations.

@@ -3,6 +3,14 @@
 Command-line reimplementation of a crop, ethanol, and vinasse valorization system
 dynamics model.
 
+## Model Author
+
+Main model author: **Agustín Olivares**
+
+- GitHub: [Aaosoto](https://github.com/Aaosoto/)
+- LinkedIn: [aaosoto](https://www.linkedin.com/in/aaosoto/)
+- Email: [agustin.olivares@ce.ucn.cl](mailto:agustin.olivares@ce.ucn.cl)
+
 ## Model Overview
 
 The model represents a sugarcane-ethanol production system connected to circular
