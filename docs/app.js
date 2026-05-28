@@ -120,6 +120,7 @@ const controls = {
   waterValue: document.getElementById("waterValue"),
   inputWorkbook: document.getElementById("inputWorkbook"),
   workbookStatus: document.getElementById("workbookStatus"),
+  simulationStatus: document.getElementById("simulationStatus"),
   runButton: document.getElementById("runButton"),
   templateButton: document.getElementById("templateButton"),
   resetButton: document.getElementById("resetButton"),
@@ -142,6 +143,8 @@ let currentRecords = [];
 let activeDefaults = { ...defaults };
 let activePopulationLookup = populationLookup.map((row) => [...row]);
 let activeValidation = defaultValidation.map((row) => ({ ...row }));
+let runCount = 0;
+let inputsDirty = false;
 
 function normalizeName(value) {
   return String(value || "")
@@ -325,6 +328,17 @@ function formatNumber(value, digits = 0) {
   return value.toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
+function setSimulationStatus(message, state = "") {
+  controls.simulationStatus.textContent = message;
+  controls.simulationStatus.classList.remove("success", "pending", "error");
+  if (state) controls.simulationStatus.classList.add(state);
+}
+
+function markInputsDirty() {
+  inputsDirty = true;
+  setSimulationStatus("Inputs changed. Press Run Simulation to refresh results.", "pending");
+}
+
 function getFirstValue(row, names) {
   for (const name of names) {
     if (row[name] !== undefined && row[name] !== null && row[name] !== "") return row[name];
@@ -477,6 +491,10 @@ function updateAllocationLabels() {
   controls.allocationStatus.classList.toggle("invalid", total > 1.0001);
 }
 
+function formatRunTime() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
 function drawLineChart(canvas, series, options = {}) {
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
@@ -571,10 +589,15 @@ function renderTable(records) {
   views.tableCount.textContent = `${records.length} years`;
 }
 
-function runModel() {
+function runModel({ silent = false } = {}) {
   updateAllocationLabels();
   const scenario = getScenario();
   const total = scenario.proportionBiogas + scenario.proportionOrganicAcid + scenario.proportionWater;
+  if (total > 1.0001) {
+    controls.exportButton.disabled = true;
+    setSimulationStatus("Simulation not run: vinasse allocation is above 100%.", "error");
+    return;
+  }
   const params = getParameters();
   currentRecords = simulate(scenario, params, getFinalTime());
 
@@ -618,7 +641,12 @@ function runModel() {
   );
 
   renderTable(currentRecords);
-  controls.exportButton.disabled = total > 1.0001;
+  controls.exportButton.disabled = false;
+  if (!silent) runCount += 1;
+  inputsDirty = false;
+  if (!silent) {
+    setSimulationStatus(`Simulation #${runCount} completed at ${formatRunTime()} with ${currentRecords.length} yearly results.`, "success");
+  }
 }
 
 function setPreset(key) {
@@ -668,13 +696,15 @@ controls.scenario.addEventListener("change", () => {
   if (controls.scenario.value !== "custom") {
     setPreset(controls.scenario.value);
   }
-  runModel();
+  updateAllocationLabels();
+  markInputsDirty();
 });
 
 [controls.biogasShare, controls.organicShare, controls.waterShare].forEach((control) => {
   control.addEventListener("input", () => {
     controls.scenario.value = "custom";
-    runModel();
+    updateAllocationLabels();
+    markInputsDirty();
   });
 });
 
@@ -686,7 +716,7 @@ controls.scenario.addEventListener("change", () => {
   controls.biogasPrice,
   controls.organicPrice,
   controls.waterValue
-].forEach((control) => control.addEventListener("input", runModel));
+].forEach((control) => control.addEventListener("input", markInputsDirty));
 
 controls.runButton.addEventListener("click", runModel);
 controls.inputWorkbook.addEventListener("change", (event) => {
@@ -700,6 +730,9 @@ controls.inputWorkbook.addEventListener("change", (event) => {
 controls.templateButton.addEventListener("click", downloadTemplate);
 controls.resetButton.addEventListener("click", resetControls);
 controls.exportButton.addEventListener("click", exportCsv);
-window.addEventListener("resize", runModel);
+window.addEventListener("resize", () => {
+  if (!currentRecords.length || inputsDirty) return;
+  runModel({ silent: true });
+});
 
 resetControls();
