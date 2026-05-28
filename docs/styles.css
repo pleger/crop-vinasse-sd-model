@@ -88,6 +88,10 @@ h2 {
   color: var(--ink);
 }
 
+.button.full-width {
+  width: 100%;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
@@ -147,6 +151,10 @@ select {
   font: inherit;
 }
 
+input[type="file"] {
+  padding: 7px;
+}
+
 input[type="range"] {
   padding: 0;
   accent-color: var(--accent);
@@ -186,7 +194,7 @@ output {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 
