@@ -56,6 +56,25 @@ h1 {
   font-weight: 760;
 }
 
+.run-status {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.run-status.success {
+  color: var(--accent);
+}
+
+.run-status.pending {
+  color: var(--accent-2);
+}
+
+.run-status.error {
+  color: var(--danger);
+}
+
 h2 {
   font-size: 15px;
   font-weight: 740;
@@ -86,6 +105,10 @@ h2 {
   background: var(--surface);
   border-color: var(--line);
   color: var(--ink);
+}
+
+.button.full-width {
+  width: 100%;
 }
 
 .app-shell {
@@ -147,6 +170,10 @@ select {
   font: inherit;
 }
 
+input[type="file"] {
+  padding: 7px;
+}
+
 input[type="range"] {
   padding: 0;
   accent-color: var(--accent);
@@ -186,7 +213,7 @@ output {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 

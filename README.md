@@ -77,8 +77,24 @@ Then open:
 http://127.0.0.1:8000
 ```
 
-The dashboard supports scenario selection, custom vinasse allocation, selected model
-parameter edits, charts, validation MAPE readouts, yearly results, and CSV export.
+The dashboard executes the JavaScript reimplementation of the simulation model in
+the browser. It supports scenario selection, custom vinasse allocation, selected
+model parameter edits, charts, validation MAPE readouts, yearly results, and CSV
+export.
+
+The web model can run with the bundled defaults or with an uploaded Excel workbook.
+The workbook is parsed entirely in the browser and should contain:
+
+- `Table 4`: parameter setup rows with `Key` or `Parameter`, `Value`, and optional
+  `Unit` columns.
+- `Table A1`: population lookup rows with `Time` or `Year`, and `Population`
+  columns.
+- `Validation`: optional observed data with the same structure as the previous
+  validation workbook, including `Year`, `Crop Real`, `Ethanol Real`, and optional
+  `Population Real`.
+
+The web app includes a template download button that creates this three-sheet input
+workbook.
 
 To publish it with GitHub Pages, configure the repository Pages source to:
 

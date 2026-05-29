@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Crop/Vinasse SD Model</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -11,15 +12,27 @@
       <div>
         <p class="eyebrow">System Dynamics</p>
         <h1>Crop/Vinasse Model</h1>
+        <div id="simulationStatus" class="run-status">Ready to run simulation.</div>
       </div>
       <div class="header-actions">
+        <button id="runButton" type="button" class="button primary">Run Simulation</button>
         <button id="resetButton" type="button" class="button secondary">Reset</button>
-        <button id="exportButton" type="button" class="button primary">Export CSV</button>
+        <button id="exportButton" type="button" class="button secondary">Export CSV</button>
       </div>
     </header>
 
     <main class="app-shell">
       <aside class="control-panel" aria-label="Model controls">
+        <section class="panel-section">
+          <h2>Input Workbook</h2>
+          <label class="field">
+            <span>Excel file</span>
+            <input id="inputWorkbook" type="file" accept=".xlsx,.xls">
+          </label>
+          <div id="workbookStatus" class="status-line">Using bundled input tables.</div>
+          <button id="templateButton" type="button" class="button secondary full-width">Download Template</button>
+        </section>
+
         <section class="panel-section">
           <h2>Scenario</h2>
           <label class="field">
@@ -108,6 +121,10 @@
             <span>Ethanol MAPE</span>
             <strong id="metricEthanolMape"></strong>
           </article>
+          <article class="metric">
+            <span>Population MAPE</span>
+            <strong id="metricPopulationMape"></strong>
+          </article>
         </section>
 
         <section class="chart-grid">
@@ -152,6 +169,7 @@
       </section>
     </main>
 
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

@@ -59,6 +59,49 @@ const defaults = {
   waterCostTreat: 1030
 };
 
+const parameterRows = [
+  ["adjustTimeYoungCrop", "Adjust Time Young Crop", defaults.adjustTimeYoungCrop, "year"],
+  ["growthDelayTime", "Growth Delay Time", defaults.growthDelayTime, "year"],
+  ["adjustTimeCrop", "Adjust Time Crop", defaults.adjustTimeCrop, "year"],
+  ["averageDiscardTime", "Average Discard Time", defaults.averageDiscardTime, "year"],
+  ["volConversionFactor", "Vol Conversion Factor", defaults.volConversionFactor, "L/m3"],
+  ["ethanolUsage", "Ethanol Usage", defaults.ethanolUsage, "m3/person/year"],
+  ["ethanolToCrop", "Ethanol To Crop", defaults.ethanolToCrop, "t crop/m3 ethanol"],
+  ["ethanolYield", "Ethanol Yield", defaults.ethanolYield, "m3 ethanol/t crop"],
+  ["vinasseYield", "Vinasse Yield", defaults.vinasseYield, "m3 vinasse/m3 ethanol"],
+  ["organicAcidFactor", "Organic Acid Factor", defaults.organicAcidFactor, "kg/m3 vinasse"],
+  ["biogasFactor", "Biogas Factor", defaults.biogasFactor, "m3/m3 vinasse"],
+  ["waterRecoveryFactor", "Water Recovery Factor", defaults.waterRecoveryFactor, "m3/m3 vinasse"],
+  ["processingTime", "Processing Time", defaults.processingTime, "year"],
+  ["salesTime", "Sales Time", defaults.salesTime, "year"],
+  ["costPerPlanting", "Cost Per Planting", defaults.costPerPlanting, "USD/unit"],
+  ["costPerUnitEthanol", "Cost Per Unit Ethanol", defaults.costPerUnitEthanol, "USD/unit"],
+  ["costPerUnitImport", "Cost Per Unit Import", defaults.costPerUnitImport, "USD/unit"],
+  ["pricePerUnitEthanol", "Price Per Unit Ethanol", defaults.pricePerUnitEthanol, "USD/unit"],
+  ["pricePerUnitBiogas", "Price Per Unit Biogas", defaults.pricePerUnitBiogas, "USD/unit"],
+  ["pricePerUnitOrganicAcid", "Price Per Unit Organic Acid", defaults.pricePerUnitOrganicAcid, "USD/unit"],
+  ["tariffImport", "Tariff Import", defaults.tariffImport, "fraction"],
+  ["costPerUnitOrganicAcid", "Cost Per Unit Organic Acid", defaults.costPerUnitOrganicAcid, "USD/unit"],
+  ["costPerUnitBiogas", "Cost Per Unit Biogas", defaults.costPerUnitBiogas, "USD/unit"],
+  ["waterCost", "Water Cost", defaults.waterCost, "USD/unit"],
+  ["policyWater", "Policy Water", defaults.policyWater, "fraction"],
+  ["waterCostTreat", "Water Cost Treat", defaults.waterCostTreat, "USD/unit"]
+];
+
+const parameterKeyByLabel = Object.fromEntries(
+  parameterRows.flatMap(([key, label]) => [
+    [normalizeName(key), key],
+    [normalizeName(label), key]
+  ])
+);
+
+const defaultValidation = cropReal.map((crop, index) => ({
+  year: 2000 + index,
+  cropReal: crop,
+  ethanolReal: ethanolReal[index],
+  populationReal: populationLookup[index] ? populationLookup[index][1] : null
+}));
+
 const controls = {
   scenario: document.getElementById("scenarioSelect"),
   biogasShare: document.getElementById("biogasShare"),
@@ -75,6 +118,11 @@ const controls = {
   biogasPrice: document.getElementById("biogasPrice"),
   organicPrice: document.getElementById("organicPrice"),
   waterValue: document.getElementById("waterValue"),
+  inputWorkbook: document.getElementById("inputWorkbook"),
+  workbookStatus: document.getElementById("workbookStatus"),
+  simulationStatus: document.getElementById("simulationStatus"),
+  runButton: document.getElementById("runButton"),
+  templateButton: document.getElementById("templateButton"),
   resetButton: document.getElementById("resetButton"),
   exportButton: document.getElementById("exportButton")
 };
@@ -84,6 +132,7 @@ const views = {
   metricMargin: document.getElementById("metricMargin"),
   metricCropMape: document.getElementById("metricCropMape"),
   metricEthanolMape: document.getElementById("metricEthanolMape"),
+  metricPopulationMape: document.getElementById("metricPopulationMape"),
   financialChart: document.getElementById("financialChart"),
   validationChart: document.getElementById("validationChart"),
   resultBody: document.getElementById("resultBody"),
@@ -91,6 +140,18 @@ const views = {
 };
 
 let currentRecords = [];
+let activeDefaults = { ...defaults };
+let activePopulationLookup = populationLookup.map((row) => [...row]);
+let activeValidation = defaultValidation.map((row) => ({ ...row }));
+let runCount = 0;
+let inputsDirty = false;
+
+function normalizeName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
 
 function lookupLinear(table, x) {
   if (x <= table[0][0]) return table[0][1];
@@ -107,7 +168,7 @@ function lookupLinear(table, x) {
 
 function getParameters() {
   return {
-    ...defaults,
+    ...activeDefaults,
     ethanolYield: Number(controls.ethanolYield.value),
     ethanolUsage: Number(controls.ethanolUsage.value),
     growthDelayTime: Number(controls.growthDelay.value),
@@ -128,7 +189,7 @@ function getScenario() {
 }
 
 function auxiliaries(state, delayOut, p, s) {
-  const population = lookupLinear(populationLookup, state.time);
+  const population = lookupLinear(activePopulationLookup, state.time);
   const demandVolume = population * p.ethanolUsage / p.volConversionFactor;
   const cropDemand = demandVolume * p.ethanolToCrop;
   const desiredCrop = cropDemand;
@@ -236,15 +297,27 @@ function simulate(scenario, params, finalTime = 30, dt = 0.001) {
   return records.map((row) => ({ ...row, year: 2000 + Math.round(row.time) }));
 }
 
-function mape(records, actuals, key, startYear, endYear) {
+function getFinalTime() {
+  const maxPopulationTime = activePopulationLookup[activePopulationLookup.length - 1][0];
+  return Math.max(30, Math.round(maxPopulationTime));
+}
+
+function validationValueByYear(key) {
+  return new Map(activeValidation
+    .filter((row) => Number.isFinite(row.year) && Number.isFinite(row[key]) && row[key] !== 0)
+    .map((row) => [row.year, row[key]]));
+}
+
+function mape(records, validationKey, modelKey, startYear = null, endYear = null) {
+  const actuals = validationValueByYear(validationKey);
   const values = records
-    .filter((row) => row.year >= startYear && row.year <= endYear)
+    .filter((row) => (startYear === null || row.year >= startYear) && (endYear === null || row.year <= endYear))
     .map((row) => {
-      const actual = actuals[row.year - 2000];
-      return actual ? Math.abs((actual - row[key]) / actual) * 100 : null;
+      const actual = actuals.get(row.year);
+      return actual ? Math.abs((actual - row[modelKey]) / actual) * 100 : null;
     })
     .filter((value) => value !== null);
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
 
 function formatMMUSD(value) {
@@ -255,6 +328,160 @@ function formatNumber(value, digits = 0) {
   return value.toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
+function setSimulationStatus(message, state = "") {
+  controls.simulationStatus.textContent = message;
+  controls.simulationStatus.classList.remove("success", "pending", "error");
+  if (state) controls.simulationStatus.classList.add(state);
+}
+
+function markInputsDirty() {
+  inputsDirty = true;
+  setSimulationStatus("Inputs changed. Press Run Simulation to refresh results.", "pending");
+}
+
+function getFirstValue(row, names) {
+  for (const name of names) {
+    if (row[name] !== undefined && row[name] !== null && row[name] !== "") return row[name];
+  }
+  const normalized = Object.fromEntries(Object.entries(row).map(([key, value]) => [normalizeName(key), value]));
+  for (const name of names) {
+    const value = normalized[normalizeName(name)];
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return null;
+}
+
+function numberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(String(value).replace(",", "."));
+  return Number.isFinite(number) ? number : null;
+}
+
+function findSheet(workbook, names) {
+  const byName = new Map(workbook.SheetNames.map((name) => [normalizeName(name), name]));
+  for (const name of names) {
+    const match = byName.get(normalizeName(name));
+    if (match) return workbook.Sheets[match];
+  }
+  return null;
+}
+
+function sheetRows(sheet) {
+  return XLSX.utils.sheet_to_json(sheet, { defval: null });
+}
+
+function parseParameterSheet(sheet) {
+  const params = {};
+  sheetRows(sheet).forEach((row) => {
+    const rawName = getFirstValue(row, ["Key", "Parameter", "Parameter Name", "Variable", "Name"]);
+    const rawValue = getFirstValue(row, ["Value", "Default", "Parameter Value", "Setup", "Base Value"]);
+    const value = numberOrNull(rawValue);
+    if (!rawName || value === null) return;
+    const key = parameterKeyByLabel[normalizeName(rawName)];
+    if (key) params[key] = value;
+  });
+  return params;
+}
+
+function parsePopulationSheet(sheet) {
+  const rows = sheetRows(sheet)
+    .map((row) => {
+      const year = numberOrNull(getFirstValue(row, ["Year", "year"]));
+      const rawTime = numberOrNull(getFirstValue(row, ["Time", "time", "t"]));
+      const population = numberOrNull(getFirstValue(row, ["Population", "Population Real", "Brazil Population", "Value"]));
+      const time = rawTime !== null ? rawTime : year !== null ? year - 2000 : null;
+      return time !== null && population !== null ? [time, population] : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a[0] - b[0]);
+  if (rows.length < 2) {
+    throw new Error("Table A1 must include at least two rows with Time/Year and Population.");
+  }
+  return rows;
+}
+
+function parseValidationSheet(sheet) {
+  return sheetRows(sheet)
+    .map((row) => {
+      const year = numberOrNull(getFirstValue(row, ["Year", "year"]));
+      return {
+        year,
+        cropReal: numberOrNull(getFirstValue(row, ["Crop Real", "Real Crop", "Observed Crop", "Crop"])),
+        ethanolReal: numberOrNull(getFirstValue(row, ["Ethanol Real", "Real Ethanol", "Observed Ethanol", "Ethanol"])),
+        populationReal: numberOrNull(getFirstValue(row, ["Population Real", "Real Population", "Observed Population", "Population"]))
+      };
+    })
+    .filter((row) => Number.isFinite(row.year));
+}
+
+function applyWorkbook(workbook) {
+  const parameterSheet = findSheet(workbook, ["Table 4", "Parameters", "Parameter Setups"]);
+  const populationSheet = findSheet(workbook, ["Table A1", "Population"]);
+  const validationSheet = findSheet(workbook, ["Validation"]);
+  if (!parameterSheet) throw new Error("Missing sheet: Table 4.");
+  if (!populationSheet) throw new Error("Missing sheet: Table A1.");
+
+  const params = parseParameterSheet(parameterSheet);
+  activeDefaults = { ...defaults, ...params };
+  activePopulationLookup = parsePopulationSheet(populationSheet);
+  activeValidation = validationSheet ? parseValidationSheet(validationSheet) : [];
+  setControlValuesFromDefaults();
+  controls.workbookStatus.textContent = `Loaded ${workbook.SheetNames.length} sheets. Validation ${activeValidation.length ? "included" : "not included"}.`;
+  controls.workbookStatus.classList.remove("invalid");
+}
+
+function setControlValuesFromDefaults() {
+  controls.ethanolYield.value = activeDefaults.ethanolYield;
+  controls.ethanolUsage.value = activeDefaults.ethanolUsage;
+  controls.growthDelay.value = activeDefaults.growthDelayTime;
+  controls.discardTime.value = activeDefaults.averageDiscardTime;
+  controls.biogasPrice.value = activeDefaults.pricePerUnitBiogas;
+  controls.organicPrice.value = activeDefaults.pricePerUnitOrganicAcid;
+  controls.waterValue.value = activeDefaults.waterCost;
+}
+
+async function loadWorkbookFromFile(file) {
+  if (!window.XLSX) throw new Error("The spreadsheet parser is still loading. Try again in a moment.");
+  const data = await file.arrayBuffer();
+  const workbook = XLSX.read(data, { type: "array" });
+  applyWorkbook(workbook);
+  runModel();
+}
+
+function downloadTemplate() {
+  if (!window.XLSX) {
+    controls.workbookStatus.textContent = "Spreadsheet tools are not available yet.";
+    controls.workbookStatus.classList.add("invalid");
+    return;
+  }
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Key", "Parameter", "Value", "Unit"],
+      ...parameterRows.map(([key, label, value, unit]) => [key, label, value, unit])
+    ]),
+    "Table 4"
+  );
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Time", "Year", "Population"],
+      ...populationLookup.map(([time, population]) => [time, 2000 + time, population])
+    ]),
+    "Table A1"
+  );
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Year", "Crop Real", "Ethanol Real", "Population Real"],
+      ...defaultValidation.map((row) => [row.year, row.cropReal, row.ethanolReal, row.populationReal])
+    ]),
+    "Validation"
+  );
+  XLSX.writeFile(workbook, "crop_vinasse_model_inputs.xlsx");
+}
+
 function updateAllocationLabels() {
   controls.biogasShareValue.textContent = Number(controls.biogasShare.value).toFixed(3);
   controls.organicShareValue.textContent = Number(controls.organicShare.value).toFixed(3);
@@ -262,6 +489,10 @@ function updateAllocationLabels() {
   const total = Number(controls.biogasShare.value) + Number(controls.organicShare.value) + Number(controls.waterShare.value);
   controls.allocationStatus.textContent = `Allocated vinasse: ${(total * 100).toFixed(1)}%`;
   controls.allocationStatus.classList.toggle("invalid", total > 1.0001);
+}
+
+function formatRunTime() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 function drawLineChart(canvas, series, options = {}) {
@@ -358,19 +589,28 @@ function renderTable(records) {
   views.tableCount.textContent = `${records.length} years`;
 }
 
-function runModel() {
+function runModel({ silent = false } = {}) {
   updateAllocationLabels();
   const scenario = getScenario();
   const total = scenario.proportionBiogas + scenario.proportionOrganicAcid + scenario.proportionWater;
+  if (total > 1.0001) {
+    controls.exportButton.disabled = true;
+    setSimulationStatus("Simulation not run: vinasse allocation is above 100%.", "error");
+    return;
+  }
   const params = getParameters();
-  currentRecords = simulate(scenario, params);
+  currentRecords = simulate(scenario, params, getFinalTime());
 
   const last = currentRecords[currentRecords.length - 1];
   const margin = last.totalRevenue ? (last.NetProfit / last.totalRevenue) * 100 : 0;
+  const cropMape = mape(currentRecords, "cropReal", "Crop", 2008, 2018);
+  const ethanolMape = mape(currentRecords, "ethanolReal", "Ethanol", 2008, 2018);
+  const populationMape = mape(currentRecords, "populationReal", "population");
   views.metricProfit.textContent = formatMMUSD(last.CumulativeProfit);
   views.metricMargin.textContent = `${margin.toFixed(2)}%`;
-  views.metricCropMape.textContent = `${mape(currentRecords, cropReal, "Crop", 2008, 2018).toFixed(2)}%`;
-  views.metricEthanolMape.textContent = `${mape(currentRecords, ethanolReal, "Ethanol", 2008, 2018).toFixed(2)}%`;
+  views.metricCropMape.textContent = cropMape === null ? "n/a" : `${cropMape.toFixed(2)}%`;
+  views.metricEthanolMape.textContent = ethanolMape === null ? "n/a" : `${ethanolMape.toFixed(2)}%`;
+  views.metricPopulationMape.textContent = populationMape === null ? "n/a" : `${populationMape.toFixed(4)}%`;
 
   drawLineChart(
     views.financialChart,
@@ -383,18 +623,30 @@ function runModel() {
   );
 
   const validationRows = currentRecords.filter((row) => row.year <= 2023);
+  const cropActuals = validationValueByYear("cropReal");
+  const ethanolActuals = validationValueByYear("ethanolReal");
   drawLineChart(
     views.validationChart,
     [
       { name: "Crop", color: "#0f766e", x: validationRows.map((r) => r.year), values: validationRows.map((r) => r.Crop) },
-      { name: "Crop Real", color: "#8a6f33", x: validationRows.map((r) => r.year), values: validationRows.map((r) => cropReal[r.year - 2000]) },
-      { name: "Ethanol", color: "#5b6f95", x: validationRows.map((r) => r.year), values: validationRows.map((r) => r.Ethanol * 10) }
-    ],
+      { name: "Ethanol x10", color: "#5b6f95", x: validationRows.map((r) => r.year), values: validationRows.map((r) => r.Ethanol * 10) },
+      ...(cropActuals.size ? [{ name: "Crop Real", color: "#8a6f33", x: validationRows.map((r) => r.year), values: validationRows.map((r) => cropActuals.get(r.year) ?? null) }] : []),
+      ...(ethanolActuals.size ? [{ name: "Ethanol Real x10", color: "#b45309", x: validationRows.map((r) => r.year), values: validationRows.map((r) => ethanolActuals.has(r.year) ? ethanolActuals.get(r.year) * 10 : null) }] : [])
+    ].map((line) => ({
+      ...line,
+      x: line.x.filter((_, index) => line.values[index] !== null),
+      values: line.values.filter((value) => value !== null)
+    })).filter((line) => line.values.length),
     { zeroBase: true, formatY: (value) => formatNumber(value, 0) }
   );
 
   renderTable(currentRecords);
-  controls.exportButton.disabled = total > 1.0001;
+  controls.exportButton.disabled = false;
+  if (!silent) runCount += 1;
+  inputsDirty = false;
+  if (!silent) {
+    setSimulationStatus(`Simulation #${runCount} completed at ${formatRunTime()} with ${currentRecords.length} yearly results.`, "success");
+  }
 }
 
 function setPreset(key) {
@@ -405,15 +657,15 @@ function setPreset(key) {
 }
 
 function resetControls() {
+  activeDefaults = { ...defaults };
+  activePopulationLookup = populationLookup.map((row) => [...row]);
+  activeValidation = defaultValidation.map((row) => ({ ...row }));
+  controls.inputWorkbook.value = "";
+  controls.workbookStatus.textContent = "Using bundled input tables.";
+  controls.workbookStatus.classList.remove("invalid");
   controls.scenario.value = "biogas";
   setPreset("biogas");
-  controls.ethanolYield.value = defaults.ethanolYield;
-  controls.ethanolUsage.value = defaults.ethanolUsage;
-  controls.growthDelay.value = defaults.growthDelayTime;
-  controls.discardTime.value = defaults.averageDiscardTime;
-  controls.biogasPrice.value = defaults.pricePerUnitBiogas;
-  controls.organicPrice.value = defaults.pricePerUnitOrganicAcid;
-  controls.waterValue.value = defaults.waterCost;
+  setControlValuesFromDefaults();
   runModel();
 }
 
@@ -444,13 +696,15 @@ controls.scenario.addEventListener("change", () => {
   if (controls.scenario.value !== "custom") {
     setPreset(controls.scenario.value);
   }
-  runModel();
+  updateAllocationLabels();
+  markInputsDirty();
 });
 
 [controls.biogasShare, controls.organicShare, controls.waterShare].forEach((control) => {
   control.addEventListener("input", () => {
     controls.scenario.value = "custom";
-    runModel();
+    updateAllocationLabels();
+    markInputsDirty();
   });
 });
 
@@ -462,10 +716,23 @@ controls.scenario.addEventListener("change", () => {
   controls.biogasPrice,
   controls.organicPrice,
   controls.waterValue
-].forEach((control) => control.addEventListener("input", runModel));
+].forEach((control) => control.addEventListener("input", markInputsDirty));
 
+controls.runButton.addEventListener("click", runModel);
+controls.inputWorkbook.addEventListener("change", (event) => {
+  const [file] = event.target.files;
+  if (!file) return;
+  loadWorkbookFromFile(file).catch((error) => {
+    controls.workbookStatus.textContent = error.message;
+    controls.workbookStatus.classList.add("invalid");
+  });
+});
+controls.templateButton.addEventListener("click", downloadTemplate);
 controls.resetButton.addEventListener("click", resetControls);
 controls.exportButton.addEventListener("click", exportCsv);
-window.addEventListener("resize", runModel);
+window.addEventListener("resize", () => {
+  if (!currentRecords.length || inputsDirty) return;
+  runModel({ silent: true });
+});
 
 resetControls();
