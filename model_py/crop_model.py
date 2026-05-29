@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Dict, Iterable, List, Mapping, Tuple
+from dataclasses import dataclass, replace as _dc_replace
+from typing import Dict, Iterable, List, Optional, Tuple
 
 
 POPULATION_LOOKUP: Tuple[Tuple[float, float], ...] = (
@@ -94,6 +94,14 @@ ETHANOL_REAL: Tuple[float, ...] = (
     35886.0,
 )
 
+# Selected time points for extreme condition test tables (paper Section 3.3.3)
+ECT_TIMES: Tuple[float, ...] = (0.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0)
+ECT_YEARS: Tuple[int, ...] = (2000, 2005, 2008, 2010, 2015, 2020, 2025, 2030)
+
+# Variation rates for sensitivity analysis (paper Section 3.5)
+_PRICE_RATES: Tuple[float, ...] = (0.05, 0.25, 0.50, 1.00)
+_FACTOR_RATES: Tuple[float, ...] = (0.10, 0.25, 0.50, 0.90)
+
 
 @dataclass(frozen=True)
 class Parameters:
@@ -125,6 +133,8 @@ class Parameters:
     water_cost: float = 2810.0
     policy_water: float = 0.0
     water_cost_treat: float = 1030.0
+    # When non-zero, population is held constant at this value (Test 2).
+    constant_population: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -142,6 +152,8 @@ SCENARIOS: Tuple[Scenario, ...] = (
     Scenario("Diversification", 0.333, 0.333, 0.333),
 )
 
+_SCENARIO_BY_NAME: Dict[str, Scenario] = {s.name: s for s in SCENARIOS}
+
 
 def lookup_linear(table: Tuple[Tuple[float, float], ...], x: float) -> float:
     if x <= table[0][0]:
@@ -155,8 +167,11 @@ def lookup_linear(table: Tuple[Tuple[float, float], ...], x: float) -> float:
     raise ValueError(f"x={x} outside lookup table")
 
 
-def _auxiliaries(state: Mapping[str, float], delay_out: float, p: Parameters, s: Scenario) -> Dict[str, float]:
-    population = lookup_linear(POPULATION_LOOKUP, state["time"])
+def _auxiliaries(state: Dict[str, float], delay_out: float, p: Parameters, s: Scenario) -> Dict[str, float]:
+    if p.constant_population > 0.0:
+        population = p.constant_population
+    else:
+        population = lookup_linear(POPULATION_LOOKUP, state["time"])
     demand_volume = population * p.ethanol_usage / p.vol_conversion_factor
     crop_demand = demand_volume * p.ethanol_to_crop
     desired_crop = crop_demand
@@ -311,3 +326,178 @@ def scenario_rows(scenario: Scenario, params: Parameters = Parameters()) -> List
         }
         for rec in simulate(scenario, params=params, final_time=30.0, record_times=range(31))
     ]
+
+
+# ---------------------------------------------------------------------------
+# Extreme Condition Tests (paper Section 3.3.3)
+# ---------------------------------------------------------------------------
+
+def _net_margin(rec: Dict[str, float]) -> Optional[float]:
+    rev = rec["totalRevenue"]
+    if rev == 0.0:
+        return None
+    return rec["NetProfit"] / rev * 100.0
+
+
+def extreme_condition_test1_rows(params: Parameters = Parameters()) -> List[Dict]:
+    """Test 1 — Zero Valorization: all byproduct proportions forced to zero."""
+    scenario = Scenario("ECT1_ZeroValorization", 0.0, 0.0, 0.0)
+    records = simulate(scenario, params=params, final_time=30.0, record_times=ECT_TIMES)
+    rows = []
+    for rec in records:
+        margin = _net_margin(rec)
+        rows.append({
+            "Year": 2000 + int(round(rec["time"])),
+            "BiogasProduction (Nm3/yr)": round(rec["BiogasProduction"], 1),
+            "OrganicAcidProduction (kg/yr)": round(rec["OrganicAcidProduction"], 1),
+            "WaterRecovery (m3/yr)": round(rec["WaterRecovery"], 1),
+            "NetMargin (%)": round(margin, 2) if margin is not None else None,
+            "Crop (th. ton)": round(rec["Crop"], 1),
+        })
+    return rows
+
+
+def extreme_condition_test2_rows(params: Parameters = Parameters()) -> List[Dict]:
+    """Test 2 — Zero Population Growth: population held constant at t=0 value.
+    All three valorization pathways active at equal weights (1/3 each)."""
+    constant_pop = POPULATION_LOOKUP[0][1]  # 174,018,282 persons
+    p2 = _dc_replace(params, constant_population=constant_pop)
+    scenario = Scenario("ECT2_ZeroPopGrowth", 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0)
+    records = simulate(scenario, params=p2, final_time=30.0, record_times=ECT_TIMES)
+    rows = []
+    for rec in records:
+        margin = _net_margin(rec)
+        rows.append({
+            "Year": 2000 + int(round(rec["time"])),
+            "BiogasProduction (Nm3/yr)": round(rec["BiogasProduction"], 1),
+            "OrganicAcidProduction (kg/yr)": round(rec["OrganicAcidProduction"], 1),
+            "WaterRecovery (m3/yr)": round(rec["WaterRecovery"], 1),
+            "NetMargin (%)": round(margin, 2) if margin is not None else None,
+            "Crop (th. ton)": round(rec["Crop"], 1),
+        })
+    return rows
+
+
+def extreme_condition_test3_rows(params: Parameters = Parameters()) -> List[Dict]:
+    """Test 3 — Zero Ethanol Yield: domestic ethanol production collapses to zero,
+    import mechanism handles all supply."""
+    p3 = _dc_replace(params, ethanol_yield=0.0)
+    scenario = Scenario("ECT3_ZeroEthanolYield", 0.0, 1.0, 0.0)
+    records = simulate(scenario, params=p3, final_time=30.0, record_times=ECT_TIMES)
+    rows = []
+    for rec in records:
+        margin = _net_margin(rec)
+        rows.append({
+            "Year": 2000 + int(round(rec["time"])),
+            "Ethanol Stock (th. m3)": round(rec["Ethanol"], 1),
+            "NetMargin (%)": round(margin, 2) if margin is not None else None,
+            "DemandVolume (th. m3)": round(rec["demandVolume"], 1),
+            "Imports (th. m3)": round(rec["Imports"], 1),
+            "EthanolProduction (th. m3/yr)": round(rec["EthanolProduction"], 1),
+        })
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Sensitivity Analysis (paper Section 3.5)
+# ---------------------------------------------------------------------------
+
+def _mean_net_surplus(records: List[Dict[str, float]]) -> float:
+    """Mean annual net profit over post-warmup period 2008–2030, in MMUSD."""
+    post = [r for r in records if r["time"] >= 8.0]
+    if not post:
+        return 0.0
+    return sum(r["NetProfit"] for r in post) / len(post) / 1e6
+
+
+def _run_surplus(scenario: Scenario, params: Parameters) -> float:
+    records = simulate(scenario, params=params, final_time=30.0, record_times=range(31))
+    return _mean_net_surplus(records)
+
+
+def _vary(params: Parameters, overrides: Dict[str, float]) -> Parameters:
+    return _dc_replace(params, **overrides)
+
+
+# Each entry: (label, [param_field_names], [variation_rates])
+# For single-parameter entries, the list has one field name.
+# For combined entries (Diversification), multiple field names are scaled together.
+_SENSITIVITY_CONFIG: Dict[str, List[Tuple[str, List[str], Tuple[float, ...]]]] = {
+    "Biogas": [
+        ("Biogas price", ["price_per_unit_biogas"], _PRICE_RATES),
+        ("Biogas conversion factor", ["biogas_factor"], _FACTOR_RATES),
+        ("Processing cost", ["cost_per_unit_biogas"], _PRICE_RATES),
+    ],
+    "Organic Acid": [
+        ("Product price", ["price_per_unit_organic_acid"], _PRICE_RATES),
+        ("Conversion factor", ["organic_acid_factor"], _FACTOR_RATES),
+        ("Processing cost", ["cost_per_unit_organic_acid"], _PRICE_RATES),
+    ],
+    "Water Recovery": [
+        ("Water value", ["water_cost"], _PRICE_RATES),
+        ("Recovery factor", ["water_recovery_factor"], _FACTOR_RATES),
+        ("Treatment cost", ["water_cost_treat"], _PRICE_RATES),
+    ],
+    "Diversification": [
+        (
+            "Combined prices",
+            ["price_per_unit_biogas", "price_per_unit_organic_acid", "water_cost"],
+            _PRICE_RATES,
+        ),
+        (
+            "Conversion factor",
+            ["biogas_factor", "organic_acid_factor", "water_recovery_factor"],
+            _FACTOR_RATES,
+        ),
+        (
+            "Processing cost",
+            ["cost_per_unit_biogas", "cost_per_unit_organic_acid", "water_cost_treat"],
+            _PRICE_RATES,
+        ),
+    ],
+}
+
+
+def sensitivity_analysis_rows(scenario_name: str, params: Parameters = Parameters()) -> List[Dict]:
+    """One-at-a-time sensitivity analysis for a given scenario.
+
+    Returns rows with: Parameter, Base Value, Variation, Low Bound, High Bound,
+    Surplus Low (MMUSD), Surplus High (MMUSD), Variation (MMUSD).
+    """
+    scenario = _SCENARIO_BY_NAME[scenario_name]
+    config = _SENSITIVITY_CONFIG[scenario_name]
+    rows: List[Dict] = []
+
+    for label, field_names, rates in config:
+        base_values = {f: getattr(params, f) for f in field_names}
+        is_combined = len(field_names) > 1
+
+        for rate in rates:
+            low_overrides = {f: v * (1.0 - rate) for f, v in base_values.items()}
+            high_overrides = {f: v * (1.0 + rate) for f, v in base_values.items()}
+
+            surplus_low = _run_surplus(scenario, _vary(params, low_overrides))
+            surplus_high = _run_surplus(scenario, _vary(params, high_overrides))
+
+            if is_combined:
+                base_display = "Weighted index"
+                low_display = f"-{int(rate * 100)}%"
+                high_display = f"+{int(rate * 100)}%"
+            else:
+                base_val = base_values[field_names[0]]
+                base_display = round(base_val, 5)
+                low_display = round(base_val * (1.0 - rate), 5)
+                high_display = round(base_val * (1.0 + rate), 5)
+
+            rows.append({
+                "Parameter": label,
+                "Base Value": base_display,
+                "Variation": f"±{int(rate * 100)}%",
+                "Low Bound": low_display,
+                "High Bound": high_display,
+                "Surplus Low (MMUSD)": round(surplus_low, 1),
+                "Surplus High (MMUSD)": round(surplus_high, 1),
+                "Variation (MMUSD)": round(abs(surplus_high - surplus_low), 1),
+            })
+
+    return rows
